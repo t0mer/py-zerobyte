@@ -14,10 +14,11 @@ from datetime import datetime
 def main():
     # Initialize client
     client = ZerobyteClient(
-        url="https://svcbck.cloudguard.co.il/",
-        username="tomer",
-        password="T0m#r!2405-77"
+        url="http://localhost:4096",
+        username="admin",
+        password="your-password"
     )
+    
     print("Backup System Status Report")
     print("="*80)
     print(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
