@@ -39,14 +39,14 @@ def main():
     else:
         print("  No volumes found")
     
-    # List repositories for each volume
+    # List all repositories
     print("\n--- Repositories ---")
-    for volume in volumes:
-        repositories = client.repositories.list(volume_id=volume['id'])
-        if repositories:
-            print(f"\n  Volume: {volume['name']}")
-            for repo in repositories:
-                print(f"    • {repo['name']} ({repo['type']})")
+    repositories = client.repositories.list()
+    if repositories:
+        for repo in repositories:
+            print(f"  • {repo['name']} ({repo.get('type', 'Unknown')})")
+    else:
+        print("  No repositories found")
         
     print("\n✓ Done!")
 

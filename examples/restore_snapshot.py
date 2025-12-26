@@ -19,18 +19,14 @@ def main():
     )
     
     # Configuration
-    volume_id = 1
-    repository_id = 1
+    repository_name = "main-backup-repo"  # Replace with your repository name
     restore_target = "/restore"
     
     print("Snapshot Restore Tool\n")
     
     # Step 1: List available snapshots
     print("1. Fetching available snapshots...")
-    snapshots = client.snapshots.list(
-        volume_id=volume_id,
-        repository_id=repository_id
-    )
+    snapshots = client.snapshots.list(repository_name=repository_name)
     
     if not snapshots:
         print("   ✗ No snapshots found")
@@ -43,7 +39,7 @@ def main():
     print("-" * 80)
     for i, snapshot in enumerate(snapshots, 1):
         snapshot_time = snapshot.get('time', 'Unknown')
-        snapshot_id = snapshot.get('id', 'Unknown')
+        snapshot_id = snapshot.get('short_id', 'Unknown')
         tags = ', '.join(snapshot.get('tags', []))
         print(f"{i}. {snapshot_id}")
         print(f"   Time: {snapshot_time}")
@@ -52,7 +48,7 @@ def main():
     
     # For this example, we'll restore the most recent snapshot
     latest_snapshot = snapshots[0]
-    snapshot_id = latest_snapshot['id']
+    snapshot_id = latest_snapshot.get('short_id', latest_snapshot.get('id', 'Unknown'))
     
     print(f"Selected snapshot: {snapshot_id}")
     print(f"Created: {latest_snapshot.get('time', 'Unknown')}\n")
@@ -60,8 +56,7 @@ def main():
     # Step 2: List files in the snapshot
     print("2. Listing files in snapshot...")
     files = client.snapshots.list_files(
-        volume_id=volume_id,
-        repository_id=repository_id,
+        repository_name=repository_name,
         snapshot_id=snapshot_id,
         path="/"
     )
@@ -72,11 +67,10 @@ def main():
     print(f"3. Restoring snapshot to {restore_target}...")
     
     restore_response = client.snapshots.restore(
-        volume_id=volume_id,
-        repository_id=repository_id,
-        snapshot_id=snapshot_id,
+        repository_name=repository_name,
         restore_data={
             "target": restore_target,
+            "snapshotId": snapshot_id,
             "include": ["/home", "/etc"],  # Restore only specific paths
             "exclude": ["/home/*/.cache"]  # Exclude cache directories
         }

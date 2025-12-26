@@ -14,11 +14,10 @@ from datetime import datetime
 def main():
     # Initialize client
     client = ZerobyteClient(
-        url="http://localhost:4096",
-        username="admin",
-        password="your-password"
+        url="https://svcbck.cloudguard.co.il/",
+        username="tomer",
+        password="T0m#r!2405-77"
     )
-    
     print("Backup System Status Report")
     print("="*80)
     print(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
@@ -53,49 +52,37 @@ def main():
         print(f"\n  Repositories: {len(repositories)}")
         
         for repo in repositories:
-            repo_id = repo['id']
-            print(f"\n    • {repo['name']} (ID: {repo_id})")
+            repo_name = repo['name']
+            print(f"\n    • {repo_name} (ID: {repo['id']})")
             print(f"      Type: {repo.get('type', 'Unknown')}")
             
             # List snapshots for this repository
             try:
-                snapshots = client.snapshots.list(volume_id, repo_id)
+                snapshots = client.snapshots.list(repo_name)
                 print(f"      Snapshots: {len(snapshots)}")
                 
                 if snapshots:
                     latest = snapshots[0]
                     print(f"      Latest Snapshot: {latest.get('time', 'Unknown')}")
-                    print(f"      Snapshot ID: {latest.get('id', 'Unknown')}")
+                    print(f"      Snapshot ID: {latest.get('short_id', 'Unknown')}")
             except Exception as e:
                 print(f"      Snapshots: Unable to fetch ({e})")
             
-            # List backup schedules for this repository
-            try:
-                schedules = client.backup_schedules.list(volume_id, repo_id)
-                print(f"      Backup Schedules: {len(schedules)}")
-                
-                for schedule in schedules:
-                    status_icon = "✓" if schedule.get('enabled') else "✗"
-                    print(f"\n        {status_icon} {schedule['name']} (ID: {schedule['id']})")
-                    print(f"          Schedule: {schedule.get('schedule', 'N/A')}")
-                    print(f"          Enabled: {'Yes' if schedule.get('enabled') else 'No'}")
-                    print(f"          Backup Paths: {', '.join(schedule.get('backupPaths', []))}")
-                    
-                    # Get retention policy
-                    retention = schedule.get('retention', {})
-                    if retention:
-                        print(f"          Retention:")
-                        for key, value in retention.items():
-                            print(f"            - {key}: {value}")
-                    
-                    # Check last run status
-                    last_run = schedule.get('lastRun')
-                    if last_run:
-                        print(f"          Last Run: {last_run.get('time', 'N/A')}")
-                        print(f"          Last Status: {last_run.get('status', 'N/A')}")
-                    
-            except Exception as e:
-                print(f"      Schedules: Unable to fetch ({e})")
+            # TODO: Backup schedules API needs updates
+            # # List backup schedules for this repository
+            # try:
+            #     schedules = client.backup_schedules.list_all()
+            #     # Filter for this volume
+            #     volume_schedules = [s for s in schedules if s.get('volumeId') == volume_id]
+            #     print(f"      Backup Schedules: {len(volume_schedules)}")
+            #     
+            #     for schedule in volume_schedules:
+            #         status_icon = "✓" if schedule.get('enabled') else "✗"
+            #         print(f"\n        {status_icon} {schedule['name']} (ID: {schedule['id']})")
+            #         print(f"          Schedule: {schedule.get('cronExpression', 'N/A')}")
+            #         print(f"          Enabled: {'Yes' if schedule.get('enabled') else 'No'}")
+            # except Exception as e:
+            #     print(f"      Schedules: Unable to fetch ({e})")
         
         print()
     

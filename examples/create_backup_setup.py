@@ -43,53 +43,54 @@ def main():
     # Step 3: Create a repository
     print("\n3. Creating backup repository...")
     repository = client.repositories.create(
-        volume_id=volume_id,
         repository_data={
             "name": "main-backup-repo",
-            "type": "local",
+            "compressionMode": "auto",
             "config": {
+                "backend": "local",
+                "name": "main-backup-repo",
                 "path": "/mnt/backups/restic-repo"
             }
         }
     )
-    repo_id = repository['id']
-    print(f"   ✓ Repository created: {repository['name']} (ID: {repo_id})")
+    repo_name = repository['repository']['name']
+    print(f"   ✓ Repository created: {repo_name} (ID: {repository['repository']['id']})")
     
     # Step 4: Create backup schedule
-    print("\n4. Creating backup schedule...")
-    schedule = client.backup_schedules.create(
-        volume_id=volume_id,
-        repository_id=repo_id,
-        schedule_data={
-            "name": "Daily System Backup",
-            "schedule": "0 2 * * *",  # Every day at 2 AM
-            "enabled": True,
-            "backupPaths": [
-                "/home",
-                "/etc",
-                "/var/www"
-            ],
-            "excludePaths": [
-                "/home/*/.cache",
-                "/var/www/cache"
-            ],
-            "retention": {
-                "keepLast": 7,      # Keep last 7 snapshots
-                "keepDaily": 7,     # Keep daily backups for 7 days
-                "keepWeekly": 4,    # Keep weekly backups for 4 weeks
-                "keepMonthly": 12,  # Keep monthly backups for 12 months
-                "keepYearly": 3     # Keep yearly backups for 3 years
-            },
-            "tags": ["daily", "system", "automated"]
-        }
-    )
-    schedule_id = schedule['id']
-    print(f"   ✓ Schedule created: {schedule['name']} (ID: {schedule_id})")
-    print(f"   Schedule: {schedule['schedule']}")
+    # TODO: Backup schedules API needs to be updated to match actual endpoints
+    # print("\n4. Creating backup schedule...")
+    # schedule = client.backup_schedules.create(
+    #     schedule_data={
+    #         "name": "Daily System Backup",
+    #         "cronExpression": "0 2 * * *",  # Every day at 2 AM
+    #         "enabled": True,
+    #         "volumeId": volume_id,
+    #         "repositoryId": repo_name,
+    #         "includePatterns": [
+    #             "/home",
+    #             "/etc",
+    #             "/var/www"
+    #         ],
+    #         "excludePatterns": [
+    #             "/home/*/.cache",
+    #             "/var/www/cache"
+    #         ],
+    #         "retentionPolicy": {
+    #             "keepLast": 7,
+    #             "keepDaily": 7,
+    #             "keepWeekly": 4,
+    #             "keepMonthly": 12,
+    #             "keepYearly": 3
+    #         }
+    #     }
+    # )
+    # print(f"   ✓ Schedule created: {schedule['name']} (ID: {schedule['id']})")
+    print("\n4. Skipping backup schedule creation (API needs updates)")
     
     # Step 5: Create notification destination
-    print("\n5. Setting up email notifications...")
-    notification = client.notifications.create_destination({
+    # TODO: Update after backup schedules API is fixed
+    print("\n5. Skipping notification setup (depends on backup schedules)")
+    # notification = client.notifications.create_destination({
         "name": "Admin Email Alerts",
         "type": "email",
         "config": {
