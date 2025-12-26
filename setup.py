@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="py-zerobyte",
-    version="1.1.0",
+    version="1.2.0",
     author="Tomer Klein",
     author_email="tomer.klein@gmail.com",
     description="Python SDK for Zerobyte API - Manage volumes, backups, and snapshots",
