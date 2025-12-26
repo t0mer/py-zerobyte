@@ -10,48 +10,57 @@ class RepositoriesAPI:
         """Initialize RepositoriesAPI with client instance."""
         self.client = client
     
-    def list(self, volume_id: int) -> List[Dict[str, Any]]:
+    def list(self, volume_id: Optional[int] = None) -> List[Dict[str, Any]]:
         """
-        List all repositories for a volume.
+        List all repositories, optionally filtered by volume ID.
         
         Args:
-            volume_id: Volume ID
+            volume_id: Optional volume ID to filter repositories (client-side filtering)
         
         Returns:
             list: List of repositories
         
         Example:
+            >>> # List all repositories
+            >>> repositories = client.repositories.list()
+            >>> # List repositories for a specific volume
             >>> repositories = client.repositories.list(volume_id=1)
             >>> for repo in repositories:
             ...     print(repo['name'])
         """
-        return self.client._make_request(
-            "GET",
-            f"/api/v1/volumes/{volume_id}/repositories"
-        )
+        repos = self.client._make_request("GET", "/api/v1/repositories")
+        
+        # Client-side filtering by volume_id if provided
+        if volume_id is not None:
+            # Note: This assumes repositories have a volumeId field
+            # If not present in the API response, this won't filter
+            repos = [r for r in repos if r.get('volumeId') == volume_id]
+        
+        return repos
     
-    def create(self, volume_id: int, repository_data: Dict[str, Any]) -> Dict[str, Any]:
+    def create(self, repository_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Create a new repository in a volume.
+        Create a new repository.
         
         Args:
-            volume_id: Volume ID
             repository_data: Repository configuration including:
                 - name (str): Repository name
-                - type (str): Repository type (e.g., 'local', 'sftp', 's3', etc.)
-                - config (dict): Repository-specific configuration
-                - password (str): Repository password (optional, auto-generated if not provided)
+                - config (dict): Repository-specific configuration with:
+                    - backend (str): Backend type ('local', 'sftp', 's3', 'r2', 'azure', 'gcs', 'rest', 'rclone')
+                    - Additional backend-specific fields
+                - compressionMode (str, optional): 'auto', 'max', or 'off'
         
         Returns:
             dict: Created repository information
         
         Example:
             >>> repo = client.repositories.create(
-            ...     volume_id=1,
             ...     repository_data={
             ...         "name": "my-backup-repo",
-            ...         "type": "local",
+            ...         "compressionMode": "auto",
             ...         "config": {
+            ...             "backend": "local",
+            ...             "name": "my-backup-repo",
             ...             "path": "/backups/repo1"
             ...         }
             ...     }
@@ -59,42 +68,39 @@ class RepositoriesAPI:
         """
         return self.client._make_request(
             "POST",
-            f"/api/v1/volumes/{volume_id}/repositories",
+            "/api/v1/repositories",
             data=repository_data
         )
     
-    def get(self, volume_id: int, repository_id: int) -> Dict[str, Any]:
+    def get(self, name: str) -> Dict[str, Any]:
         """
-        Get a specific repository.
+        Get a specific repository by name.
         
         Args:
-            volume_id: Volume ID
-            repository_id: Repository ID
+            name: Repository name
         
         Returns:
             dict: Repository information
         
         Example:
-            >>> repo = client.repositories.get(volume_id=1, repository_id=1)
+            >>> repo = client.repositories.get(name="my-backup-repo")
             >>> print(repo['name'])
         """
         return self.client._make_request(
             "GET",
-            f"/api/v1/volumes/{volume_id}/repositories/{repository_id}"
+            f"/api/v1/repositories/{name}"
         )
     
     def update(
         self,
-        volume_id: int,
-        repository_id: int,
+        name: str,
         repository_data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Update a repository.
         
         Args:
-            volume_id: Volume ID
-            repository_id: Repository ID
+            name: Repository name
             repository_data: Updated repository configuration
         
         Returns:
@@ -102,51 +108,48 @@ class RepositoriesAPI:
         
         Example:
             >>> repo = client.repositories.update(
-            ...     volume_id=1,
-            ...     repository_id=1,
-            ...     repository_data={"name": "updated-repo-name"}
+            ...     name="my-backup-repo",
+            ...     repository_data={"compressionMode": "max"}
             ... )
         """
         return self.client._make_request(
             "PUT",
-            f"/api/v1/volumes/{volume_id}/repositories/{repository_id}",
+            f"/api/v1/repositories/{name}",
             data=repository_data
         )
     
-    def delete(self, volume_id: int, repository_id: int) -> Dict[str, Any]:
+    def delete(self, name: str) -> Dict[str, Any]:
         """
         Delete a repository.
         
         Args:
-            volume_id: Volume ID
-            repository_id: Repository ID
+            name: Repository name
         
         Returns:
             dict: Deletion response
         
         Example:
-            >>> response = client.repositories.delete(volume_id=1, repository_id=1)
+            >>> response = client.repositories.delete(name="my-backup-repo")
         """
         return self.client._make_request(
             "DELETE",
-            f"/api/v1/volumes/{volume_id}/repositories/{repository_id}"
+            f"/api/v1/repositories/{name}"
         )
     
-    def doctor(self, volume_id: int, repository_id: int) -> Dict[str, Any]:
+    def doctor(self, name: str) -> Dict[str, Any]:
         """
         Run doctor command on a repository to check and repair issues.
         
         Args:
-            volume_id: Volume ID
-            repository_id: Repository ID
+            name: Repository name
         
         Returns:
             dict: Doctor command result
         
         Example:
-            >>> result = client.repositories.doctor(volume_id=1, repository_id=1)
+            >>> result = client.repositories.doctor(name="my-backup-repo")
         """
         return self.client._make_request(
             "POST",
-            f"/api/v1/volumes/{volume_id}/repositories/{repository_id}/doctor"
+            f"/api/v1/repositories/{name}/doctor"
         )
