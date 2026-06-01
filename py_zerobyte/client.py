@@ -1,6 +1,7 @@
 """Main client for Zerobyte API."""
 
 import requests
+from urllib.parse import urlparse
 from typing import Optional, Dict, Any
 from .exceptions import (
     ZerobyteError,
@@ -21,13 +22,13 @@ from .system import SystemAPI
 class ZerobyteClient:
     """
     Main client for interacting with the Zerobyte API.
-    
+
     Args:
         url: The base URL of the Zerobyte API (e.g., "http://localhost:4096")
         username: Username for authentication
         password: Password for authentication
         auto_login: Whether to automatically login on initialization (default: True)
-    
+
     Example:
         >>> client = ZerobyteClient(
         ...     url="http://localhost:4096",
@@ -36,7 +37,7 @@ class ZerobyteClient:
         ... )
         >>> volumes = client.volumes.list()
     """
-    
+
     def __init__(
         self,
         url: str,
@@ -49,7 +50,7 @@ class ZerobyteClient:
         self.username = username
         self.password = password
         self.session = requests.Session()
-        
+
         # Initialize API modules
         self.auth = AuthAPI(self)
         self.volumes = VolumesAPI(self)
@@ -58,27 +59,33 @@ class ZerobyteClient:
         self.backup_schedules = BackupSchedulesAPI(self)
         self.notifications = NotificationsAPI(self)
         self.system = SystemAPI(self)
-        
+
         # Auto-login if requested
         if auto_login:
             self.login()
-    
+
+    def _get_trusted_origin(self) -> str:
+        """Return the trusted origin header value for better-auth CSRF protection."""
+        parsed = urlparse(self.base_url)
+        port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+        return f"http://localhost:{port}"
+
     def login(self) -> Dict[str, Any]:
         """
         Login to the Zerobyte API.
-        
+
         Returns:
             dict: Login response containing user information
-        
+
         Raises:
             AuthenticationError: If login fails
         """
         return self.auth.login(self.username, self.password)
-    
+
     def logout(self) -> Dict[str, Any]:
         """
         Logout from the Zerobyte API.
-        
+
         Returns:
             dict: Logout response
         """
