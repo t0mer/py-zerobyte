@@ -132,3 +132,10 @@ dmypy.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude / AI assistant context — local only, never track
+CLAUDE.md
+.claude/
+*.design.md
+*.implementation.md
+*.plan.md
