@@ -1,466 +1,486 @@
-# Zerobyte SDK Tutorial
+# Tutorial — Zerobyte SDK
 
-A step-by-step guide for getting started with the Zerobyte SDK.
+A step-by-step guide to connecting, setting up backups, and restoring data.
 
 ## Table of Contents
 
 1. [Installation](#installation)
 2. [First Connection](#first-connection)
 3. [Working with Volumes](#working-with-volumes)
-4. [Setting Up Backups](#setting-up-backups)
-5. [Managing Snapshots](#managing-snapshots)
-6. [Configuring Notifications](#configuring-notifications)
-7. [Monitoring Your System](#monitoring-your-system)
-8. [Best Practices](#best-practices)
+4. [Setting Up a Repository](#setting-up-a-repository)
+5. [Creating a Backup Schedule](#creating-a-backup-schedule)
+6. [Running and Monitoring Backups](#running-and-monitoring-backups)
+7. [Working with Snapshots](#working-with-snapshots)
+8. [Configuring Notifications](#configuring-notifications)
+9. [System Information](#system-information)
+10. [Best Practices](#best-practices)
+
+---
 
 ## Installation
-
-First, install the SDK using pip:
 
 ```bash
 pip install py-zerobyte
 ```
 
-Verify the installation:
+Verify:
 
 ```bash
-python -c "from py_zerobyte import ZerobyteClient; print('✓ Installed successfully')"
+python -c "from py_zerobyte import ZerobyteClient; print('OK')"
 ```
+
+---
 
 ## First Connection
 
-### Step 1: Import the SDK
-
 ```python
-from py_zerobyte import ZerobyteClient
-```
-
-### Step 2: Initialize the Client
-
-```python
-client = ZerobyteClient(
-    url="http://localhost:4096",  # Your Zerobyte API URL
-    username="admin",              # Your username
-    password="your-password"       # Your password
-)
-```
-
-The client automatically logs in when initialized. If you prefer manual login:
-
-```python
-client = ZerobyteClient(
-    url="http://localhost:4096",
-    username="admin",
-    password="your-password",
-    auto_login=False  # Disable auto-login
-)
-
-# Login manually
-client.login()
-```
-
-### Step 3: Verify Connection
-
-```python
-# Get current user information
-user = client.auth.get_me()
-print(f"Connected as: {user['user']['username']}")
-
-# Get system information
-system_info = client.system.get_info()
-print(f"Zerobyte version: {system_info['version']}")
-```
-
-## Working with Volumes
-
-### List Existing Volumes
-
-```python
-volumes = client.volumes.list()
-for volume in volumes:
-    print(f"- {volume['name']} (Mounted: {volume['mounted']})")
-```
-
-### Create a New Volume
-
-```python
-volume = client.volumes.create({
-    "name": "my-backup-drive",
-    "device": "/dev/sdb1",          # Your storage device
-    "mountPoint": "/mnt/backups",   # Where to mount it
-    "filesystem": "ext4",           # Filesystem type
-    "autoRemount": True,            # Auto-mount on startup
-    "readonly": False,              # Read-write access
-    "options": []                   # Additional mount options
-})
-
-volume_id = volume['id']
-print(f"Created volume: {volume['name']} (ID: {volume_id})")
-```
-
-### Mount the Volume
-
-```python
-client.volumes.mount(volume_id)
-print("Volume mounted successfully")
-```
-
-### Check Volume Health
-
-```python
-health = client.volumes.health_check(volume_id)
-print(f"Volume health: {health['status']}")
-```
-
-### Browse Volume Files
-
-```python
-files = client.volumes.list_files(volume_id, path="/")
-for file in files:
-    print(f"- {file['name']} ({file['type']})")
-```
-
-## Setting Up Backups
-
-### Step 1: Create a Repository
-
-A repository is where your backups are stored.
-
-```python
-repository = client.repositories.create(
-    volume_id=volume_id,
-    repository_data={
-        "name": "production-backups",
-        "type": "local",
-        "config": {
-            "path": "/mnt/backups/restic-repo"
-        }
-    }
-)
-
-repo_id = repository['id']
-print(f"Created repository: {repository['name']} (ID: {repo_id})")
-```
-
-### Step 2: Create a Backup Schedule
-
-```python
-schedule = client.backup_schedules.create(
-    volume_id=volume_id,
-    repository_id=repo_id,
-    schedule_data={
-        "name": "Daily Server Backup",
-        "schedule": "0 2 * * *",  # Cron: Every day at 2 AM
-        "enabled": True,
-        
-        # What to backup
-        "backupPaths": [
-            "/home",
-            "/etc",
-            "/var/www"
-        ],
-        
-        # What to exclude
-        "excludePaths": [
-            "/home/*/.cache",
-            "/home/*/tmp",
-            "/var/www/cache"
-        ],
-        
-        # Retention policy
-        "retention": {
-            "keepLast": 7,      # Keep last 7 snapshots
-            "keepDaily": 7,     # Keep daily backups for 7 days
-            "keepWeekly": 4,    # Keep weekly backups for 4 weeks
-            "keepMonthly": 12,  # Keep monthly backups for 12 months
-            "keepYearly": 3     # Keep yearly backups for 3 years
-        },
-        
-        # Tags for organization
-        "tags": ["production", "daily", "automated"]
-    }
-)
-
-schedule_id = schedule['id']
-print(f"Created schedule: {schedule['name']} (ID: {schedule_id})")
-```
-
-### Step 3: Run Initial Backup
-
-Don't wait for the schedule - run your first backup now:
-
-```python
-print("Starting initial backup...")
-client.backup_schedules.run_now(volume_id, repo_id, schedule_id)
-print("Backup started! This may take a while.")
-```
-
-## Managing Snapshots
-
-### List All Snapshots
-
-```python
-snapshots = client.snapshots.list(volume_id, repo_id)
-print(f"Found {len(snapshots)} snapshots:")
-
-for snapshot in snapshots[:5]:  # Show first 5
-    print(f"- {snapshot['id']}")
-    print(f"  Time: {snapshot['time']}")
-    print(f"  Tags: {', '.join(snapshot.get('tags', []))}")
-```
-
-### Browse Snapshot Contents
-
-```python
-snapshot_id = snapshots[0]['id']  # Most recent snapshot
-
-files = client.snapshots.list_files(
-    volume_id=volume_id,
-    repository_id=repo_id,
-    snapshot_id=snapshot_id,
-    path="/home"
-)
-
-print("Files in snapshot /home:")
-for file in files:
-    print(f"- {file['name']}")
-```
-
-### Restore from Snapshot
-
-```python
-# Restore specific files to a target location
-restore_response = client.snapshots.restore(
-    volume_id=volume_id,
-    repository_id=repo_id,
-    snapshot_id=snapshot_id,
-    restore_data={
-        "target": "/restore/2024-12-26",  # Where to restore
-        "include": ["/home/user/documents"],  # What to restore
-        "exclude": ["/home/user/documents/temp"]  # What to skip
-    }
-)
-
-print("Restore initiated!")
-print("Files will be restored to /restore/2024-12-26")
-```
-
-## Configuring Notifications
-
-### Create Email Notification
-
-```python
-email_notification = client.notifications.create_destination({
-    "name": "Admin Email Alerts",
-    "type": "email",
-    "config": {
-        "to": "admin@example.com",
-        "from": "backup@example.com",
-        "smtpHost": "smtp.gmail.com",
-        "smtpPort": 587,
-        "username": "backup@example.com",
-        "password": "your-app-password",  # Use app-specific password
-        "useTLS": True
-    }
-})
-
-notification_id = email_notification['id']
-print(f"Created notification: {email_notification['name']}")
-```
-
-### Test Notification
-
-```python
-test_result = client.notifications.test_destination(notification_id)
-if test_result['success']:
-    print("✓ Test email sent successfully!")
-else:
-    print(f"✗ Test failed: {test_result.get('message')}")
-```
-
-### Link Notification to Backup Schedule
-
-```python
-client.backup_schedules.update_notifications(
-    volume_id=volume_id,
-    repository_id=repo_id,
-    schedule_id=schedule_id,
-    notifications_data={
-        "onSuccess": True,   # Notify on successful backup
-        "onFailure": True,   # Notify on failed backup
-        "destinations": [notification_id]  # Which notifications to use
-    }
-)
-
-print("Notifications configured for backup schedule")
-```
-
-## Monitoring Your System
-
-### Get Overall Status
-
-```python
-# List all volumes
-volumes = client.volumes.list()
-print(f"Volumes: {len(volumes)}")
-
-# For each volume, get details
-for volume in volumes:
-    print(f"\n{volume['name']}:")
-    
-    # Check health
-    try:
-        health = client.volumes.health_check(volume['id'])
-        print(f"  Health: {health['status']}")
-    except:
-        print(f"  Health: Unknown")
-    
-    # List repositories
-    repos = client.repositories.list(volume['id'])
-    print(f"  Repositories: {len(repos)}")
-    
-    for repo in repos:
-        # Count snapshots
-        snapshots = client.snapshots.list(volume['id'], repo['id'])
-        print(f"    - {repo['name']}: {len(snapshots)} snapshots")
-```
-
-### Check Backup Schedule Status
-
-```python
-schedules = client.backup_schedules.list(volume_id, repo_id)
-
-for schedule in schedules:
-    status = "✓ Enabled" if schedule['enabled'] else "✗ Disabled"
-    print(f"{schedule['name']}: {status}")
-    print(f"  Schedule: {schedule['schedule']}")
-    
-    # Check last run
-    if 'lastRun' in schedule:
-        last_run = schedule['lastRun']
-        print(f"  Last run: {last_run['time']} - {last_run['status']}")
-```
-
-## Best Practices
-
-### 1. Error Handling
-
-Always wrap API calls in try-except blocks:
-
-```python
-from py_zerobyte import (
-    ZerobyteClient,
-    AuthenticationError,
-    NotFoundError,
-    ValidationError,
-    APIError
-)
+from py_zerobyte import ZerobyteClient, AuthenticationError
 
 try:
     client = ZerobyteClient(
         url="http://localhost:4096",
         username="admin",
-        password="password"
+        password="your-password"
     )
-    
-    volume = client.volumes.get(999)  # May not exist
-    
 except AuthenticationError:
-    print("Invalid credentials!")
-except NotFoundError:
-    print("Volume not found!")
-except ValidationError as e:
-    print(f"Validation error: {e}")
-except APIError as e:
-    print(f"API error: {e}")
+    print("Login failed — check your credentials.")
+    raise
 ```
 
-### 2. Session Management
+The client logs in automatically on init and stores the session cookie. All subsequent calls reuse the same session.
 
-Reuse the client instance instead of creating new ones:
+### Verify the connection
 
 ```python
-# Good - One client for multiple operations
-client = ZerobyteClient(url="...", username="...", password="...")
+session = client.auth.get_me()
+print(f"Connected as: {session['user']['username']}")
+print(f"Role: {session['user']['role']}")
+
+# Check server capabilities
+info = client.system.get_info()
+print(f"Capabilities: {info['capabilities']}")
+```
+
+### First-time setup
+
+If the server has no users yet, register one first:
+
+```python
+status = client.auth.get_status()
+if not status['hasUsers']:
+    client = ZerobyteClient(url="http://localhost:4096",
+                            username="", password="", auto_login=False)
+    client.auth.register("admin", "strong-password-here")
+    client.login()   # log in with the new account
+```
+
+---
+
+## Working with Volumes
+
+A **volume** is a storage location the Zerobyte server can access. Volumes use a `shortId` string (e.g. `"0-b-U31s"`) as their path identifier.
+
+### List existing volumes
+
+```python
 volumes = client.volumes.list()
-repos = client.repositories.list(1)
-
-# Bad - Don't create new clients repeatedly
-for i in range(10):
-    client = ZerobyteClient(...)  # This logs in 10 times!
+for v in volumes:
+    print(f"{v['name']}  shortId={v['shortId']}  status={v['status']}")
 ```
 
-### 3. Retention Policies
-
-Design retention policies carefully:
+### Create a volume
 
 ```python
-retention = {
-    "keepLast": 7,      # Always keep last 7 (for quick recovery)
-    "keepDaily": 30,    # Keep daily for last month
-    "keepWeekly": 12,   # Keep weekly for ~3 months
-    "keepMonthly": 24,  # Keep monthly for 2 years
-    "keepYearly": 5     # Keep yearly for 5 years
-}
-```
-
-### 4. Backup Scheduling
-
-Use cron expressions wisely:
-
-```python
-schedules = {
-    "hourly": "0 * * * *",           # Every hour
-    "daily_2am": "0 2 * * *",        # Every day at 2 AM
-    "weekly_sunday": "0 3 * * 0",    # Every Sunday at 3 AM
-    "monthly_1st": "0 4 1 * *",      # 1st of month at 4 AM
-}
-```
-
-### 5. Testing Backups
-
-Regularly verify your backups work:
-
-```python
-# 1. Create test restore directory
-# 2. Restore a small file
-# 3. Verify contents
-# 4. Clean up
-
-snapshot = snapshots[0]  # Most recent
-client.snapshots.restore(
-    volume_id, repo_id, snapshot['id'],
-    restore_data={
-        "target": "/tmp/restore-test",
-        "include": ["/etc/hostname"]  # Small file
+volume = client.volumes.create({
+    "name": "backup-storage",
+    "autoRemount": True,
+    "config": {
+        "backend": "directory",
+        "path": "/mnt/backup"
     }
-)
-# Verify /tmp/restore-test/etc/hostname exists and is correct
+})
+vid = volume['shortId']
+print(f"Created: {volume['name']}  shortId={vid}")
 ```
+
+### Mount / unmount
+
+```python
+client.volumes.mount(vid)
+print("Mounted")
+
+client.volumes.unmount(vid)
+print("Unmounted")
+```
+
+### Health check
+
+```python
+health = client.volumes.health_check(vid)
+print(f"Health: {health}")
+```
+
+### Browse files
+
+```python
+# Files inside a volume
+files = client.volumes.list_files(vid, path="/")
+for f in files.get('files', []):
+    print(f"  {f['name']}  ({f['type']})")
+
+# Raw server filesystem (not limited to a volume)
+listing = client.volumes.browse_filesystem(path="/mnt")
+for d in listing.get('directories', []):
+    print(f"  {d['path']}")
+```
+
+---
+
+## Setting Up a Repository
+
+A **repository** is a restic backup destination. It stores deduplicated, encrypted snapshots.
+
+```python
+repo = client.repositories.create({
+    "name": "production-backups",
+    "compressionMode": "auto",
+    "config": {
+        "backend": "local",
+        "path": "/mnt/backup/restic-repo"
+    }
+})
+rid = repo['shortId']
+print(f"Repository: {repo['name']}  shortId={rid}")
+```
+
+### Cloud backends
+
+```python
+# Cloudflare R2
+repo = client.repositories.create({
+    "name": "r2-offsite",
+    "compressionMode": "auto",
+    "config": {
+        "backend": "r2",
+        "bucket": "my-zerobyte-backups",
+        "accessKeyId": "...",
+        "secretAccessKey": "...",
+        "endpoint": "https://<account>.r2.cloudflarestorage.com"
+    }
+})
+```
+
+### Repository health
+
+```python
+result = client.repositories.doctor(rid)
+print(f"Doctor result: {result}")
+```
+
+---
+
+## Creating a Backup Schedule
+
+Schedules define **what** to back up, **when**, and **how long to keep** snapshots.
+
+```python
+schedule = client.backup_schedules.create({
+    "name": "Daily Server Backup",
+    "repositoryId": rid,          # repository shortId
+    "volumeId": 1,                # volume numeric id (from volumes.list()[n]['id'])
+    "cronExpression": "0 2 * * *",  # 2 AM every day
+    "enabled": True,
+
+    # What to back up
+    "backupPaths": ["/home", "/etc", "/var/www"],
+
+    # Exclusion rules (glob patterns)
+    "excludePatterns": [
+        "**/.cache/**",
+        "**/node_modules/**",
+        "**/__pycache__/**"
+    ],
+
+    # Retention policy
+    "retentionPolicy": {
+        "keepLast": 7,
+        "keepDaily": 7,
+        "keepWeekly": 4,
+        "keepMonthly": 12,
+        "keepYearly": 3
+    },
+
+    "tags": ["production", "daily"]
+})
+
+sched_id = schedule['shortId']
+print(f"Schedule created: {schedule['name']}  shortId={sched_id}")
+```
+
+### Update a schedule
+
+`update()` requires `cronExpression` and `repositoryId` even when only changing other fields:
+
+```python
+client.backup_schedules.update(sched_id, {
+    "repositoryId": rid,
+    "cronExpression": "0 3 * * *",   # move to 3 AM
+    "enabled": True
+})
+```
+
+---
+
+## Running and Monitoring Backups
+
+### Trigger immediately
+
+```python
+client.backup_schedules.run_now(sched_id)
+print("Backup started")
+```
+
+### Stop a running backup
+
+```python
+client.backup_schedules.stop_backup(sched_id)
+```
+
+### Apply retention (forget old snapshots)
+
+```python
+client.backup_schedules.run_forget(sched_id)
+```
+
+### Check schedule status
+
+```python
+schedules = client.backup_schedules.list()
+for s in schedules:
+    state = "enabled" if s['enabled'] else "disabled"
+    print(f"{s['name']}  [{state}]  next={s.get('nextBackupAt')}")
+    if s.get('lastBackupStatus'):
+        print(f"  last: {s['lastBackupStatus']}  at {s.get('lastBackupAt')}")
+```
+
+### All schedules for a specific volume
+
+```python
+vol_schedules = client.backup_schedules.get_for_volume(volume_id=1)
+print(f"{len(vol_schedules)} schedule(s) for volume 1")
+```
+
+---
+
+## Working with Snapshots
+
+### List snapshots
+
+```python
+snapshots = client.snapshots.list(rid)
+print(f"{len(snapshots)} snapshot(s)")
+for s in snapshots[:5]:
+    print(f"  {s['id']}  {s.get('time')}  tags={s.get('tags', [])}")
+```
+
+### Inspect a snapshot
+
+```python
+if snapshots:
+    snap_id = snapshots[0]['id']
+    detail = client.snapshots.get_details(rid, snap_id)
+    print(f"Paths: {detail.get('paths')}")
+    print(f"Hostname: {detail.get('hostname')}")
+```
+
+### Browse files inside a snapshot
+
+```python
+files = client.snapshots.list_files(rid, snap_id, path="/home")
+for f in files.get('files', []):
+    print(f"  {f['name']}")
+```
+
+### Restore
+
+```python
+# Restore specific paths from the latest snapshot
+client.snapshots.restore(rid, {
+    "target": "/restore/2026-06-01",
+    "include": ["/home/user/documents"],
+    "exclude": ["/home/user/documents/tmp"]
+})
+print("Restore initiated")
+
+# Restore from a specific snapshot
+client.snapshots.restore(rid, {
+    "target": "/restore/specific",
+    "snapshotId": snap_id,
+    "include": ["/etc"]
+})
+```
+
+### Delete a snapshot
+
+```python
+client.snapshots.delete(rid, snap_id)
+print("Snapshot deleted")
+```
+
+---
+
+## Configuring Notifications
+
+Zerobyte supports Telegram, email, Pushover, ntfy, Discord, Slack, and generic webhooks.
+
+### Create a Telegram destination
+
+The destination `type` goes **inside** the `config` dict:
+
+```python
+dest = client.notifications.create_destination({
+    "name": "Telegram Alerts",
+    "config": {
+        "type": "telegram",
+        "botToken": "123456789:AAFxxxx",
+        "chatId": "-1001234567890"
+    }
+})
+dest_id = dest['id']
+```
+
+### Create an email destination
+
+```python
+client.notifications.create_destination({
+    "name": "Admin Email",
+    "config": {
+        "type": "email",
+        "from": "backup@example.com",
+        "to": ["admin@example.com"],
+        "smtpHost": "smtp.gmail.com",
+        "smtpPort": 587,
+        "useTLS": True,
+        "username": "backup@example.com",
+        "password": "app-specific-password"
+    }
+})
+```
+
+### Test a destination
+
+```python
+result = client.notifications.test_destination(dest_id)
+print(f"Test result: {result}")
+```
+
+### Link a destination to a backup schedule
+
+```python
+client.backup_schedules.update_notifications(sched_id, {
+    "onSuccess": False,   # don't notify on success
+    "onFailure": True,    # always notify on failure
+    "destinations": [dest_id]
+})
+```
+
+### Mirror backups to a second repository
+
+```python
+rid2 = "other-repo-shortid"
+client.backup_schedules.update_mirrors(sched_id, {
+    "enabled": True,
+    "repositories": [rid2]
+})
+
+# Verify compatibility
+compat = client.backup_schedules.get_mirror_compatibility(sched_id)
+print(f"Mirror compatibility: {compat}")
+```
+
+---
+
+## System Information
+
+```python
+info = client.system.get_info()
+caps = info['capabilities']
+print(f"rclone available: {caps['rclone']}")
+print(f"sysAdmin: {caps['sysAdmin']}")
+
+# Retrieve the restic encryption password (requires your account password)
+result = client.system.download_restic_password("your-account-password")
+```
+
+---
+
+## Best Practices
+
+### Always use shortId for path parameters
+
+```python
+# Correct
+vols = client.volumes.list()
+vid = vols[0]['shortId']   # "0-b-U31s"
+client.volumes.mount(vid)
+
+# Wrong — numeric id is NOT the path parameter
+# client.volumes.mount(vols[0]['id'])
+```
+
+### Reuse the client
+
+```python
+# Good — one session, one login
+client = ZerobyteClient(url=..., username=..., password=...)
+volumes = client.volumes.list()
+repos   = client.repositories.list()
+
+# Bad — logs in on every iteration
+for item in data:
+    c = ZerobyteClient(...)   # unnecessary round-trip
+```
+
+### Handle errors explicitly
+
+```python
+from py_zerobyte import AuthenticationError, NotFoundError, ValidationError, APIError
+
+try:
+    schedule = client.backup_schedules.get("non-existent")
+except NotFoundError:
+    print("Schedule not found")
+except APIError as e:
+    print(f"Unexpected error (HTTP {e.status_code}): {e}")
+```
+
+### Cron expression reference
+
+```python
+"0 * * * *"      # every hour, on the hour
+"0 2 * * *"      # every day at 2 AM
+"0 3 * * 0"      # every Sunday at 3 AM
+"0 4 1 * *"      # 1st of each month at 4 AM
+"0 0 1 1 *"      # 1st January every year
+```
+
+### Retention policy guidance
+
+```python
+"retentionPolicy": {
+    "keepLast": 7,       # always keep the 7 most recent snapshots
+    "keepDaily": 30,     # one per day for the last 30 days
+    "keepWeekly": 12,    # one per week for the last 12 weeks
+    "keepMonthly": 24,   # one per month for the last 24 months
+    "keepYearly": 5      # one per year for the last 5 years
+}
+```
+
+---
 
 ## Next Steps
 
-1. **Explore Examples**
-   - Check the `examples/` directory for more code samples
-   - Run `python examples/basic_usage.py`
-
-2. **Read API Reference**
-   - See `API_REFERENCE.md` for complete API documentation
-
-3. **Automate Your Workflows**
-   - Create scripts for common tasks
-   - Use cron or systemd timers for scheduling
-
-4. **Monitor and Maintain**
-   - Set up notifications
-   - Regularly check backup status
-   - Test restores periodically
-
-## Getting Help
-
-- **Documentation**: See README.md and API_REFERENCE.md
-- **Examples**: Check examples/ directory
-- **Issues**: Report on GitHub
-- **API Spec**: Refer to swagger.json
-
-Happy backing up! 🎉
+- **All method signatures** → `API_REFERENCE.md`
+- **Working examples** → `examples/` directory
+- **Release process** → `CHECKLIST.md`
+- **Issues / questions** → https://github.com/t0mer/py-zerobyte/issues
