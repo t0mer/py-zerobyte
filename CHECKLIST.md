@@ -1,189 +1,101 @@
-# Pre-Publishing Checklist
+# Release Checklist — Zerobyte SDK
 
-Use this checklist before publishing the Zerobyte SDK to PyPI.
+Use this checklist before publishing a new version to PyPI.
 
 ## Code Quality
 
-- [x] All API endpoints from swagger.json implemented
-- [x] URL, username, password configured in `__init__`
-- [x] Error handling implemented
-- [x] Type hints added
-- [x] Docstrings for all public methods
-- [ ] Code formatted with black: `black py_zerobyte/`
-- [ ] No linting errors: `flake8 py_zerobyte/`
-- [ ] Tests pass: `pytest tests/`
+- [ ] All tests pass: `pytest tests/`
+- [ ] Code formatted: `black py_zerobyte/`
+- [ ] No lint errors: `flake8 py_zerobyte/`
+- [x] All 50 API endpoints implemented and verified against live instance
+- [x] Type hints on all public methods
+- [x] Docstrings on all public methods
+
+## Version Bump
+
+Update the version string in **all three** of these files (they must match):
+
+- [ ] `py_zerobyte/__init__.py` — `__version__ = "X.Y.Z"`
+- [ ] `setup.py` — `version="X.Y.Z"`
+- [ ] `pyproject.toml` — `version = "X.Y.Z"`
 
 ## Documentation
 
-- [x] README.md complete with examples
-- [x] API_REFERENCE.md complete
-- [x] INSTALL.md with installation instructions
-- [x] PUBLISHING.md with publishing guide
-- [x] Example scripts in examples/
-- [x] LICENSE file present
-- [x] PROJECT_SUMMARY.md created
+- [ ] `README.md` — examples use current method signatures
+- [ ] `API_REFERENCE.md` — all method signatures up to date
+- [ ] `TUTORIAL.md` — walkthrough uses current API
+- [ ] `QUICKSTART.md` — quick examples are correct
+- [ ] `CHANGELOG` section in `README.md` updated
 
-## Package Configuration
+## API Correctness (re-verify after any server update)
 
-- [x] setup.py configured correctly
-- [x] pyproject.toml configured correctly
-- [x] requirements.txt lists all dependencies
-- [x] MANIFEST.in includes necessary files
-- [x] .gitignore configured
-- [x] Version numbers consistent across files:
-  - [ ] setup.py
-  - [ ] pyproject.toml
-  - [ ] py_zerobyte/__init__.py
+- [ ] Auth: `client.auth.login(u, p)` succeeds
+- [ ] Auth: `client.auth.get_me()` returns `{"session": ..., "user": ...}`
+- [ ] Volumes: `client.volumes.list()` returns list; `shortId` field present
+- [ ] Volumes: per-volume methods accept `shortId` string
+- [ ] Repositories: `client.repositories.list()` returns list; `shortId` field present
+- [ ] Repositories: `update()` uses PATCH
+- [ ] Backup schedules: `create()` body includes `repositoryId` and `volumeId`
+- [ ] Backup schedules: `update()` body includes `cronExpression` and `repositoryId`
+- [ ] Notifications: `create_destination()` config dict has `type` field inside it
+- [ ] System: `download_restic_password(password)` requires the account password
 
-## Testing
-
-- [ ] Test with actual Zerobyte API instance
-- [ ] Verify all endpoints work correctly
-- [ ] Test error handling
-- [ ] Test authentication flow
-- [ ] Run example scripts successfully
-
-## Pre-Publishing Steps
-
-1. **Update Package Name (if needed)**
-   - [x] Package name set to "py-zerobyte"
-   - [x] Updated in setup.py
-   - [x] Updated in pyproject.toml
-   - [x] Updated in README.md
-
-2. **Clean Build**
-   ```bash
-   rm -rf build/ dist/ *.egg-info
-   ```
-
-3. **Build Package**
-   ```bash
-   python -m build
-   ```
-   - [ ] Build completes without errors
-   - [ ] Both .tar.gz and .whl files created
-
-4. **Check Package**
-   ```bash
-   twine check dist/*
-   ```
-   - [ ] All checks pass
-
-5. **Test Upload to TestPyPI**
-   ```bash
-   python -m twine upload --repository testpypi dist/*
-   ```
-   - [ ] Upload successful
-
-6. **Test Installation from TestPyPI**
-   ```bash
-   pip install --index-url https://test.pypi.org/simple/ py-zerobyte
-   ```
-   - [ ] Installation successful
-   - [ ] Import works: `from py_zerobyte import ZerobyteClient`
-   - [ ] Basic functionality works
-
-## Publishing
-
-7. **Upload to Production PyPI**
-   ```bash
-   python -m twine upload dist/*
-   ```
-   - [ ] Upload successful
-
-8. **Test Installation from PyPI**
-   ```bash
-   pip install py-zerobyte
-   ```
-   - [ ] Installation successful
-   - [ ] All functionality works
-
-## Post-Publishing
-
-9. **Create Git Repository** (if not done)
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit - v1.0.0"
-   git tag -a v1.0.0 -m "Release version 1.0.0"
-   ```
-
-10. **Push to GitHub**
-    - [ ] Create repository on GitHub
-    - [ ] Push code
-    - [ ] Push tags
-    - [ ] Update repository URL in setup.py and pyproject.toml
-
-11. **Documentation**
-    - [ ] Update GitHub repository description
-    - [ ] Add topics/tags to repository
-    - [ ] Create release notes on GitHub
-    - [ ] Link to PyPI package in README
-
-12. **Announce**
-    - [ ] Share on relevant forums/communities
-    - [ ] Update project documentation
-    - [ ] Notify stakeholders
-
-## Common Issues to Check
-
-- [ ] All imports work correctly
-- [ ] No circular imports
-- [ ] No hardcoded credentials in code
-- [ ] No absolute file paths in code
-- [ ] README renders correctly on PyPI
-- [ ] All example scripts have updated configuration instructions
-- [ ] License year is correct
-- [ ] Author/maintainer information is correct
-
-## Final Verification Commands
-
-Run these before publishing:
+## Build
 
 ```bash
-# Check package structure
-tree -L 3
+# Clean previous build artefacts
+rm -rf build/ dist/ *.egg-info
 
-# Run tests
-pytest
-
-# Format code
-black py_zerobyte/
-
-# Check linting
-flake8 py_zerobyte/
-
-# Check setup.py
-python setup.py check
-
-# Build
+# Build sdist + wheel
 python -m build
 
-# Check distribution
+# Verify the distribution
 twine check dist/*
+```
 
-# Test import
+- [ ] Build completes without errors
+- [ ] Both `.tar.gz` and `.whl` files present in `dist/`
+- [ ] `twine check` passes with no errors or warnings
+
+## TestPyPI
+
+```bash
+python -m twine upload --repository testpypi dist/*
+pip install --index-url https://test.pypi.org/simple/ py-zerobyte
 python -c "from py_zerobyte import ZerobyteClient; print('OK')"
 ```
 
-## Version Numbers to Update
+- [ ] Upload to TestPyPI succeeds
+- [ ] Install from TestPyPI succeeds
+- [ ] Basic import works
 
-When releasing a new version, update these files:
+## Production PyPI
 
-1. `setup.py` - line with `version=`
-2. `pyproject.toml` - line with `version =`
-3. `py_zerobyte/__init__.py` - line with `__version__ =`
+```bash
+python -m twine upload dist/*
+pip install --upgrade py-zerobyte
+python -c "from py_zerobyte import ZerobyteClient; print('OK')"
+```
 
-All three must match!
+- [ ] Upload succeeds
+- [ ] Install from PyPI succeeds
 
-## Support Checklist
+## Git
 
-- [ ] Issue template created on GitHub
-- [ ] Contributing guidelines created
-- [ ] Code of conduct added
-- [ ] Support documentation available
-- [ ] Contact information updated
+```bash
+git tag -a v1.2.1 -m "Release 1.2.1"
+git push origin main --tags
+```
+
+- [ ] Version tag pushed
+- [ ] GitHub release created with changelog notes
+
+## Post-Release
+
+- [ ] GitHub release notes published
+- [ ] `README.md` PyPI badge showing correct version
+- [ ] Announce in relevant channels if applicable
 
 ---
 
-**Remember:** You can only upload each version once to PyPI. Test thoroughly on TestPyPI first!
+**Reminder:** Each version can only be uploaded to PyPI once. Verify on TestPyPI first.
