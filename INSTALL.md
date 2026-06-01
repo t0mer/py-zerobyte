@@ -1,39 +1,35 @@
-# Zerobyte SDK Installation Guide
+# Installation Guide — Zerobyte SDK
 
 ## Prerequisites
 
 - Python 3.7 or higher
-- pip package manager
+- pip
 
-## Installation Methods
-
-### Method 1: Install from PyPI (Recommended)
-
-Once published to PyPI, you can install using pip:
+## Install from PyPI (recommended)
 
 ```bash
 pip install py-zerobyte
 ```
 
-### Method 2: Install from Source
+## Install from Source
 
-1. Clone the repository:
 ```bash
 git clone https://github.com/t0mer/py-zerobyte.git
 cd py-zerobyte
-```
-
-2. Install in development mode:
-```bash
-pip install -e .
-```
-
-Or install directly:
-```bash
 pip install .
 ```
 
-### Method 3: Install from GitHub
+## Install in Development Mode
+
+```bash
+git clone https://github.com/t0mer/py-zerobyte.git
+cd py-zerobyte
+pip install -e ".[dev]"
+```
+
+Dev extras include: `pytest`, `pytest-cov`, `black`, `flake8`.
+
+## Install from GitHub (latest unreleased)
 
 ```bash
 pip install git+https://github.com/t0mer/py-zerobyte.git
@@ -41,99 +37,90 @@ pip install git+https://github.com/t0mer/py-zerobyte.git
 
 ## Verify Installation
 
-After installation, verify it works:
-
 ```bash
-python -c "from py_zerobyte import ZerobyteClient; print('Zerobyte SDK installed successfully!')"
+python -c "from py_zerobyte import ZerobyteClient; print('OK')"
 ```
 
-## Development Installation
-
-For development with testing tools:
-
-```bash
-pip install -e ".[dev]"
-```
-
-This installs additional development dependencies:
-- pytest (for testing)
-- pytest-cov (for coverage)
-- black (for code formatting)
-- flake8 (for linting)
-
-## Quick Start
-
-After installation, try this quick test:
+## Quick Connection Test
 
 ```python
 from py_zerobyte import ZerobyteClient
 
-# Initialize client
 client = ZerobyteClient(
     url="http://localhost:4096",
     username="your-username",
     password="your-password"
 )
 
-# Get user info
-user = client.auth.get_me()
-print(f"Connected as: {user['user']['username']}")
+session = client.auth.get_me()
+print(f"Connected as: {session['user']['username']}")
 
-# List volumes
 volumes = client.volumes.list()
-print(f"Found {len(volumes)} volume(s)")
+print(f"Volumes: {len(volumes)}")
 ```
 
-## Troubleshooting
-
-### ImportError: No module named 'py_zerobyte'
-
-Make sure the package is installed:
-```bash
-pip list | grep zerobyte
-```
-
-If not found, reinstall:
-```bash
-pip install py-zerobyte
-```
-
-### Connection Issues
-
-If you get connection errors, verify:
-1. Zerobyte API server is running
-2. URL is correct (include http:// or https://)
-3. Port is accessible
-4. Credentials are correct
-
-### SSL Certificate Issues
-
-If using HTTPS with self-signed certificates, you may need to disable SSL verification (not recommended for production):
-
-```python
-import requests
-# Disable SSL warnings
-requests.packages.urllib3.disable_warnings()
-```
-
-## Upgrading
-
-To upgrade to the latest version:
+## Upgrade
 
 ```bash
 pip install --upgrade py-zerobyte
 ```
 
-## Uninstallation
-
-To remove the SDK:
+## Uninstall
 
 ```bash
 pip uninstall py-zerobyte
 ```
 
+---
+
+## Troubleshooting
+
+### `ImportError: No module named 'py_zerobyte'`
+
+```bash
+pip list | grep zerobyte
+# If missing:
+pip install py-zerobyte
+```
+
+### `AuthenticationError` on init
+
+- Confirm the server is reachable: `curl http://localhost:4096/api/v1/auth/status`
+- Verify username and password are correct
+- Check that the URL scheme and port are correct
+
+### `ConnectionError` / `requests.exceptions.ConnectionError`
+
+- Make sure the Zerobyte server is running
+- Confirm the `url` includes the scheme and port: `http://host:4096`
+- Check firewall / network rules if connecting to a remote host
+
+### SSL certificate errors (self-signed certs)
+
+The SDK uses `requests` which verifies TLS certificates by default. **Do not disable verification** — doing so exposes credentials to man-in-the-middle attacks.
+
+Instead, add your CA certificate to the trust store:
+
+```bash
+# Debian / Ubuntu
+sudo cp my-ca.crt /usr/local/share/ca-certificates/
+sudo update-ca-certificates
+
+# RHEL / Fedora
+sudo cp my-ca.crt /etc/pki/ca-trust/source/anchors/
+sudo update-ca-trust
+```
+
+Or point `requests` at your CA bundle directly:
+
+```python
+client = ZerobyteClient(url="https://...", username="...", password="...")
+client.session.verify = "/path/to/ca-bundle.crt"
+```
+
+For development, consider using a properly-issued certificate from [Let's Encrypt](https://letsencrypt.org/) or a local CA like [mkcert](https://github.com/FiloSottile/mkcert) instead of a self-signed cert.
+
 ## Support
 
-For issues or questions:
-- GitHub Issues: https://github.com/t0mer/py-zerobyte/issues
+- Issues: https://github.com/t0mer/py-zerobyte/issues
 - Documentation: https://github.com/t0mer/py-zerobyte
