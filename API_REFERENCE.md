@@ -1,458 +1,681 @@
-# Zerobyte SDK API Reference
+# API Reference — Zerobyte SDK
 
-Complete API reference for the Zerobyte SDK.
+Complete reference for every public method in `py-zerobyte`.
 
 ## Table of Contents
 
-- [Client](#client)
-- [Authentication API](#authentication-api)
-- [Volumes API](#volumes-api)
-- [Repositories API](#repositories-api)
-- [Snapshots API](#snapshots-api)
-- [Backup Schedules API](#backup-schedules-api)
-- [Notifications API](#notifications-api)
-- [System API](#system-api)
+- [ZerobyteClient](#zerobyteclient)
+- [AuthAPI](#authapi)
+- [VolumesAPI](#volumesapi)
+- [RepositoriesAPI](#repositoriesapi)
+- [SnapshotsAPI](#snapshotsapi)
+- [BackupSchedulesAPI](#backupschedulesapi)
+- [NotificationsAPI](#notificationsapi)
+- [SystemAPI](#systemapi)
 - [Exceptions](#exceptions)
 
-## Client
+---
 
-### ZerobyteClient
+## ZerobyteClient
 
-Main client for interacting with the Zerobyte API.
-
-**Constructor:**
 ```python
-ZerobyteClient(url, username, password, auto_login=True)
+from py_zerobyte import ZerobyteClient
+
+client = ZerobyteClient(url, username, password, auto_login=True)
 ```
 
-**Parameters:**
-- `url` (str): Base URL of the Zerobyte API
-- `username` (str): Username for authentication
-- `password` (str): Password for authentication
-- `auto_login` (bool): Whether to automatically login on initialization (default: True)
+**Parameters**
 
-**Properties:**
-- `auth`: Authentication API methods
-- `volumes`: Volumes API methods
-- `repositories`: Repositories API methods
-- `snapshots`: Snapshots API methods
-- `backup_schedules`: Backup Schedules API methods
-- `notifications`: Notifications API methods
-- `system`: System API methods
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `url` | str | — | Base URL of the Zerobyte server (e.g. `http://localhost:4096`) |
+| `username` | str | — | Login username |
+| `password` | str | — | Login password |
+| `auto_login` | bool | `True` | Call `login()` automatically during `__init__` |
 
----
+**Attributes** — API module instances
 
-## Authentication API
+| Attribute | Type |
+|---|---|
+| `client.auth` | `AuthAPI` |
+| `client.volumes` | `VolumesAPI` |
+| `client.repositories` | `RepositoriesAPI` |
+| `client.snapshots` | `SnapshotsAPI` |
+| `client.backup_schedules` | `BackupSchedulesAPI` |
+| `client.notifications` | `NotificationsAPI` |
+| `client.system` | `SystemAPI` |
 
-Access via `client.auth`
+**Methods**
 
-### register(username, password)
-Register a new user.
+`client.login()` — Log in using the stored username/password. Called automatically when `auto_login=True`.
 
-**Returns:** dict - Registration response with user information
-
-### login(username, password)
-Login with username and password.
-
-**Returns:** dict - Login response with user information
-
-### logout()
-Logout current user.
-
-**Returns:** dict - Logout response
-
-### get_me()
-Get current authenticated user information.
-
-**Returns:** dict - Current user information
-
-### get_status()
-Get authentication system status.
-
-**Returns:** dict - Authentication system status (e.g., hasUsers)
-
-### change_password(current_password, new_password)
-Change current user password.
-
-**Returns:** dict - Password change response
+`client.logout()` — Log out the current session.
 
 ---
 
-## Volumes API
+## AuthAPI
 
-Access via `client.volumes`
+Access via `client.auth`.
 
-### list()
-List all volumes.
+### `register(username, password)`
 
-**Returns:** list - List of volumes
+Register a new user account.
 
-### create(volume_data)
+| Parameter | Type | Description |
+|---|---|---|
+| `username` | str | Minimum 3 characters |
+| `password` | str | Minimum 8 characters |
+
+Returns `dict` with `message`, `success`, `user`.
+
+---
+
+### `login(username, password)`
+
+Authenticate and start a session. Sets the `zerobyte.session_token` cookie on the underlying `requests.Session`.
+
+Returns `dict` with `user` info and `token`.
+
+---
+
+### `logout()`
+
+End the current session.
+
+Returns `dict` with `success: true`.
+
+---
+
+### `get_me()`
+
+Return the current session and authenticated user.
+
+```python
+session = client.auth.get_me()
+# {"session": {...}, "user": {"username": "admin", "role": "admin", ...}}
+```
+
+Returns `dict` with `session` and `user` keys.
+
+---
+
+### `get_status()`
+
+Check whether any users are registered (useful for first-run setup).
+
+```python
+status = client.auth.get_status()
+# {"hasUsers": true}
+```
+
+Returns `dict` with `hasUsers` bool.
+
+---
+
+### `change_password(current_password, new_password)`
+
+Change the authenticated user's password.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `current_password` | str | Current password |
+| `new_password` | str | New password (min 8 chars) |
+
+Returns `dict`.
+
+---
+
+## VolumesAPI
+
+Access via `client.volumes`.
+
+> **Note:** All per-volume methods accept the volume's **`shortId`** string (e.g. `"0-b-U31s"`), not the numeric `id`.
+
+### `list()`
+
+List all configured volumes.
+
+Returns `list[dict]` — each item contains `id`, `shortId`, `name`, `type`, `status`, `config`, etc.
+
+---
+
+### `create(volume_data)`
+
 Create a new volume.
 
-**Parameters:**
-- `volume_data` (dict): Volume configuration
-  - `name` (str): Volume name
-  - `device` (str): Device path
-  - `mountPoint` (str): Mount point path
-  - `filesystem` (str): Filesystem type
-  - `autoRemount` (bool): Auto remount on startup
-  - `readonly` (bool): Mount as readonly
-  - `options` (list): Mount options
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `name` | str | yes | Display name |
+| `autoRemount` | bool | no | Remount automatically on server restart |
+| `config` | dict | yes | Backend config — must include `"backend"` key |
 
-**Returns:** dict - Created volume information
+Common `config` backends:
 
-### test_connection(volume_data)
-Test connection to a volume before creating it.
+```python
+# Local directory
+{"backend": "directory", "path": "/mnt/backup"}
 
-**Returns:** dict - Test result
+# NFS / CIFS / block device — use appropriate backend key
+```
 
-### get(volume_id)
-Get a specific volume by ID.
+Returns `dict` with the created volume.
 
-**Returns:** dict - Volume information
+---
 
-### update(volume_id, volume_data)
-Update a volume.
+### `test_connection(volume_data)`
 
-**Returns:** dict - Updated volume information
+Validate volume config without persisting it.
 
-### delete(volume_id)
+Returns `dict` with test result.
+
+---
+
+### `get(volume_name)`
+
+Get a volume by shortId.
+
+Returns `dict` — wraps the volume under a `"volume"` key.
+
+---
+
+### `update(volume_name, volume_data)`
+
+Update a volume's configuration.
+
+Returns `dict` with the updated volume.
+
+---
+
+### `delete(volume_name)`
+
 Delete a volume.
 
-**Returns:** dict - Deletion response
+Returns `dict`.
 
-### mount(volume_id)
+---
+
+### `mount(volume_name)`
+
 Mount a volume.
 
-**Returns:** dict - Mount response
+Returns `dict`.
 
-### unmount(volume_id)
+---
+
+### `unmount(volume_name)`
+
 Unmount a volume.
 
-**Returns:** dict - Unmount response
-
-### health_check(volume_id)
-Perform health check on a volume.
-
-**Returns:** dict - Health check result
-
-### list_files(volume_id, path=None)
-List files in a volume.
-
-**Parameters:**
-- `path` (str, optional): Path within the volume
-
-**Returns:** dict - File listing
-
-### browse_filesystem(path=None)
-Browse the filesystem.
-
-**Parameters:**
-- `path` (str, optional): Filesystem path
-
-**Returns:** dict - Directory listing
-
-### list_rclone_remotes()
-List available rclone remotes.
-
-**Returns:** list - List of rclone remote names
+Returns `dict`.
 
 ---
 
-## Repositories API
+### `health_check(volume_name)`
 
-Access via `client.repositories`
+Run a health check on a volume.
 
-### list(volume_id)
-List all repositories for a volume.
+Returns `dict`.
 
-**Returns:** list - List of repositories
+---
 
-### create(volume_id, repository_data)
-Create a new repository in a volume.
+### `list_files(volume_name, path=None)`
 
-**Parameters:**
-- `repository_data` (dict): Repository configuration
-  - `name` (str): Repository name
-  - `type` (str): Repository type
-  - `config` (dict): Type-specific configuration
-  - `password` (str, optional): Repository password
+List files at `path` within a volume.
 
-**Returns:** dict - Created repository information
+| Parameter | Type | Description |
+|---|---|---|
+| `volume_name` | str | Volume shortId |
+| `path` | str \| None | Subdirectory relative to volume root (default: root) |
 
-### get(volume_id, repository_id)
-Get a specific repository.
+Returns `dict` with `files` list.
 
-**Returns:** dict - Repository information
+---
 
-### update(volume_id, repository_id, repository_data)
-Update a repository.
+### `browse_filesystem(path=None)`
 
-**Returns:** dict - Updated repository information
+Browse the server's filesystem (not limited to a volume).
 
-### delete(volume_id, repository_id)
+| Parameter | Type | Description |
+|---|---|---|
+| `path` | str \| None | Absolute server path (default: `/`) |
+
+Returns `dict` with `directories` and `files`.
+
+---
+
+## RepositoriesAPI
+
+Access via `client.repositories`.
+
+> **Note:** Get/update/delete methods accept the repository's **`shortId`** string.
+
+### `list()`
+
+List all repositories.
+
+Returns `list[dict]` — each item contains `id`, `shortId`, `name`, `type`, `config`, `status`, etc.
+
+---
+
+### `create(repository_data)`
+
+Create a new repository.
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `name` | str | yes | Display name |
+| `config` | dict | yes | Backend config with `"backend"` key |
+| `compressionMode` | str | no | `"auto"` (default), `"max"`, or `"off"` |
+
+Common `config.backend` values: `"local"`, `"sftp"`, `"s3"`, `"r2"`, `"azure"`, `"gcs"`, `"rest"`, `"rclone"`.
+
+Returns `dict` with the created repository.
+
+---
+
+### `get(name)`
+
+Get a repository by shortId.
+
+Returns `dict`.
+
+---
+
+### `update(name, repository_data)`
+
+Update a repository (HTTP PATCH — send only the fields to change).
+
+| Key | Type | Description |
+|---|---|---|
+| `name` | str | New display name |
+| `compressionMode` | str | `"auto"`, `"max"`, or `"off"` |
+
+Returns `dict`.
+
+---
+
+### `delete(name)`
+
 Delete a repository.
 
-**Returns:** dict - Deletion response
-
-### doctor(volume_id, repository_id)
-Run doctor command on a repository to check and repair issues.
-
-**Returns:** dict - Doctor command result
+Returns `dict`.
 
 ---
 
-## Snapshots API
+### `doctor(name)`
 
-Access via `client.snapshots`
+Run the restic `doctor` command to check and repair repository integrity.
 
-### list(volume_id, repository_id)
-List all snapshots in a repository.
-
-**Returns:** list - List of snapshots
-
-### get_details(volume_id, repository_id, snapshot_id)
-Get details of a specific snapshot.
-
-**Returns:** dict - Snapshot details
-
-### delete(volume_id, repository_id, snapshot_id)
-Delete a snapshot.
-
-**Returns:** dict - Deletion response
-
-### list_files(volume_id, repository_id, snapshot_id, path=None)
-List files in a snapshot.
-
-**Parameters:**
-- `path` (str, optional): Path within snapshot
-
-**Returns:** dict - File listing
-
-### restore(volume_id, repository_id, snapshot_id, restore_data)
-Restore a snapshot.
-
-**Parameters:**
-- `restore_data` (dict): Restore configuration
-  - `target` (str): Target path for restoration
-  - `include` (list, optional): Paths to include
-  - `exclude` (list, optional): Paths to exclude
-
-**Returns:** dict - Restore response
+Returns `dict` with doctor output.
 
 ---
 
-## Backup Schedules API
+### `list_rclone_remotes()`
 
-Access via `client.backup_schedules`
+List rclone remotes configured on the server.
 
-### list(volume_id, repository_id)
-List all backup schedules for a repository.
-
-**Returns:** list - List of backup schedules
-
-### create(volume_id, repository_id, schedule_data)
-Create a new backup schedule.
-
-**Parameters:**
-- `schedule_data` (dict): Schedule configuration
-  - `name` (str): Schedule name
-  - `schedule` (str): Cron expression
-  - `enabled` (bool): Whether schedule is enabled
-  - `backupPaths` (list): Paths to backup
-  - `excludePaths` (list, optional): Paths to exclude
-  - `retention` (dict, optional): Retention policy
-  - `tags` (list, optional): Tags for the backup
-
-**Returns:** dict - Created backup schedule
-
-### get(volume_id, repository_id, schedule_id)
-Get a specific backup schedule.
-
-**Returns:** dict - Backup schedule details
-
-### update(volume_id, repository_id, schedule_id, schedule_data)
-Update a backup schedule.
-
-**Returns:** dict - Updated backup schedule
-
-### delete(volume_id, repository_id, schedule_id)
-Delete a backup schedule.
-
-**Returns:** dict - Deletion response
-
-### get_for_volume(volume_id)
-Get all backup schedules for a volume across all repositories.
-
-**Returns:** list - List of backup schedules
-
-### run_now(volume_id, repository_id, schedule_id)
-Run a backup schedule immediately.
-
-**Returns:** dict - Backup execution response
-
-### stop_backup(volume_id, repository_id, schedule_id)
-Stop a running backup.
-
-**Returns:** dict - Stop response
-
-### run_forget(volume_id, repository_id, schedule_id)
-Run the forget command to apply retention policy.
-
-**Returns:** dict - Forget command response
-
-### get_notifications(volume_id, repository_id, schedule_id)
-Get notification settings for a backup schedule.
-
-**Returns:** dict - Notification settings
-
-### update_notifications(volume_id, repository_id, schedule_id, notifications_data)
-Update notification settings for a backup schedule.
-
-**Returns:** dict - Updated notification settings
-
-### get_mirrors(volume_id, repository_id, schedule_id)
-Get mirror settings for a backup schedule.
-
-**Returns:** dict - Mirror settings
-
-### update_mirrors(volume_id, repository_id, schedule_id, mirrors_data)
-Update mirror settings for a backup schedule.
-
-**Returns:** dict - Updated mirror settings
-
-### get_mirror_compatibility(volume_id, repository_id, schedule_id)
-Check mirror compatibility for a backup schedule.
-
-**Returns:** dict - Mirror compatibility information
-
-### reorder(volume_id, repository_id, order_data)
-Reorder backup schedules.
-
-**Parameters:**
-- `order_data` (dict): New order configuration
-  - `scheduleIds` (list): Ordered list of schedule IDs
-
-**Returns:** dict - Reorder response
+Returns `list[str]`.
 
 ---
 
-## Notifications API
+## SnapshotsAPI
 
-Access via `client.notifications`
+Access via `client.snapshots`.
 
-### list_destinations()
-List all notification destinations.
+### `list(repository_name, backup_id=None)`
 
-**Returns:** list - List of notification destinations
+List snapshots in a repository.
 
-### create_destination(destination_data)
-Create a new notification destination.
+| Parameter | Type | Description |
+|---|---|---|
+| `repository_name` | str | Repository shortId |
+| `backup_id` | str \| None | Filter by backup schedule ID |
 
-**Parameters:**
-- `destination_data` (dict): Destination configuration
-  - `name` (str): Destination name
-  - `type` (str): Destination type (email, slack, webhook, etc.)
-  - `config` (dict): Type-specific configuration
-
-**Returns:** dict - Created notification destination
-
-### get_destination(destination_id)
-Get a specific notification destination.
-
-**Returns:** dict - Notification destination details
-
-### update_destination(destination_id, destination_data)
-Update a notification destination.
-
-**Returns:** dict - Updated notification destination
-
-### delete_destination(destination_id)
-Delete a notification destination.
-
-**Returns:** dict - Deletion response
-
-### test_destination(destination_id)
-Test a notification destination.
-
-**Returns:** dict - Test result
+Returns `list[dict]` — each item contains `id`, `time`, `tags`, `paths`, `hostname`, etc.
 
 ---
 
-## System API
+### `get_details(repository_name, snapshot_id)`
 
-Access via `client.system`
+Get full metadata for a single snapshot.
 
-### get_info()
-Get system information.
+Returns `dict`.
 
-**Returns:** dict - System information including version, platform, etc.
+---
 
-### download_restic_password()
-Download the Restic password file.
+### `delete(repository_name, snapshot_id)`
 
-**Returns:** str - Restic password content
+Delete a snapshot from the repository.
+
+Returns `dict`.
+
+---
+
+### `list_files(repository_name, snapshot_id, path=None)`
+
+Browse the file tree inside a snapshot.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `path` | str \| None | Path within the snapshot to list |
+
+Returns `dict` with `files`.
+
+---
+
+### `restore(repository_name, restore_data)`
+
+Restore files from a repository snapshot.
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `target` | str | yes | Destination path on the server |
+| `snapshotId` | str | no | Specific snapshot (omit to use latest) |
+| `include` | list[str] | no | Paths to include |
+| `exclude` | list[str] | no | Paths to exclude |
+
+Returns `dict`.
+
+---
+
+## BackupSchedulesAPI
+
+Access via `client.backup_schedules`.
+
+> **Note:** All per-schedule methods accept the schedule's **`shortId`** string. `repositoryId` is the repository's **`shortId`**; `volumeId` is the volume's numeric `id`.
+
+### `list()`
+
+List all backup schedules.
+
+Returns `list[dict]`.
+
+---
+
+### `create(schedule_data)`
+
+Create a backup schedule.
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `name` | str | yes | Display name (1–32 chars) |
+| `repositoryId` | str | yes | Target repository shortId |
+| `volumeId` | int | yes | Source volume numeric id |
+| `cronExpression` | str | yes | Cron expression (e.g. `"0 2 * * *"`) |
+| `enabled` | bool | yes | Whether to run on schedule |
+| `backupPaths` | list[str] | no | Paths to include in backup |
+| `excludePatterns` | list[str] | no | Glob patterns to exclude |
+| `excludeIfPresent` | list[str] | no | Skip dirs containing these filenames |
+| `retentionPolicy` | dict | no | Retention rules (see below) |
+| `tags` | list[str] | no | Tags applied to snapshots |
+
+Retention policy keys: `keepLast`, `keepHourly`, `keepDaily`, `keepWeekly`, `keepMonthly`, `keepYearly`, `keepWithinDuration`.
+
+Returns `dict` with the created schedule including its `shortId`.
+
+---
+
+### `get(schedule_id)`
+
+Get a schedule by shortId.
+
+Returns `dict`.
+
+---
+
+### `update(schedule_id, schedule_data)`
+
+Update a schedule (HTTP PATCH). `cronExpression` and `repositoryId` are required in the body.
+
+Returns `dict`.
+
+---
+
+### `delete(schedule_id)`
+
+Delete a schedule.
+
+Returns `dict`.
+
+---
+
+### `get_for_volume(volume_id)`
+
+List all schedules associated with a specific volume (numeric id).
+
+Returns `list[dict]`.
+
+---
+
+### `run_now(schedule_id)`
+
+Trigger a backup immediately, outside the cron schedule.
+
+Returns `dict`.
+
+---
+
+### `stop_backup(schedule_id)`
+
+Abort a running backup.
+
+Returns `dict`.
+
+---
+
+### `run_forget(schedule_id)`
+
+Apply the retention policy (run `restic forget`) without running a backup.
+
+Returns `dict`.
+
+---
+
+### `get_notifications(schedule_id)`
+
+Retrieve notification settings for this schedule.
+
+Returns `dict`.
+
+---
+
+### `update_notifications(schedule_id, notifications_data)`
+
+Configure which notification destinations receive results for this schedule.
+
+| Key | Type | Description |
+|---|---|---|
+| `onSuccess` | bool | Notify on successful backup |
+| `onFailure` | bool | Notify on failure |
+| `destinations` | list[int] | Notification destination IDs |
+
+Returns `dict`.
+
+---
+
+### `get_mirrors(schedule_id)`
+
+Get mirror repository configuration.
+
+Returns `dict`.
+
+---
+
+### `update_mirrors(schedule_id, mirrors_data)`
+
+Configure mirror repositories.
+
+| Key | Type | Description |
+|---|---|---|
+| `enabled` | bool | Enable mirroring |
+| `repositories` | list[str] | Target repository shortIds |
+
+Returns `dict`.
+
+---
+
+### `get_mirror_compatibility(schedule_id)`
+
+Check whether configured mirrors are compatible with this schedule.
+
+Returns `dict`.
+
+---
+
+### `reorder(order_data)`
+
+Change the execution order of schedules.
+
+| Key | Type | Description |
+|---|---|---|
+| `scheduleIds` | list[str] | Schedule shortIds in desired order |
+
+Returns `dict`.
+
+---
+
+## NotificationsAPI
+
+Access via `client.notifications`.
+
+### `list_destinations()`
+
+List all configured notification destinations.
+
+Returns `list[dict]` — each item contains `id`, `name`, `type`, `enabled`, `status`, etc.
+
+---
+
+### `create_destination(destination_data)`
+
+Create a notification destination.
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `name` | str | yes | Display name |
+| `config` | dict | yes | Provider config — must include `"type"` key |
+
+Supported `config.type` values and required fields:
+
+| Type | Required config fields |
+|---|---|
+| `telegram` | `botToken`, `chatId` |
+| `email` | `from`, `to` (list), `smtpHost`, `smtpPort` |
+| `pushover` | `apiToken`, `userKey`, `priority` |
+| `ntfy` | `topic`, `serverUrl` |
+| `discord` | `webhookUrl` |
+| `slack` | `webhookUrl` |
+| `webhook` | `url` |
+
+Returns `dict` with the created destination.
+
+---
+
+### `get_destination(destination_id)`
+
+Get a destination by numeric id.
+
+Returns `dict`.
+
+---
+
+### `update_destination(destination_id, destination_data)`
+
+Update a destination (HTTP PATCH).
+
+Returns `dict`.
+
+---
+
+### `delete_destination(destination_id)`
+
+Delete a destination.
+
+Returns `dict`.
+
+---
+
+### `test_destination(destination_id)`
+
+Send a test message to the destination.
+
+Returns `dict`.
+
+---
+
+## SystemAPI
+
+Access via `client.system`.
+
+### `get_info()`
+
+Return server capabilities.
+
+```python
+info = client.system.get_info()
+# {"capabilities": {"rclone": false, "sysAdmin": true}}
+```
+
+Returns `dict`.
+
+---
+
+### `download_restic_password(password)`
+
+Retrieve the restic repository encryption password. Requires the caller's account password for verification.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `password` | str | Current account password |
+
+Returns `dict`.
 
 ---
 
 ## Exceptions
 
-### ZerobyteError
-Base exception for all Zerobyte SDK errors.
+```
+ZerobyteError               ← base; wraps connection / SDK errors
+├── AuthenticationError     ← HTTP 401
+└── APIError                ← all HTTP 4xx/5xx errors
+    │   .status_code (int)
+    │   .response (requests.Response)
+    ├── NotFoundError       ← HTTP 404
+    └── ValidationError     ← HTTP 400
+```
 
-### AuthenticationError
-Raised when authentication fails.
-
-**Inherits from:** ZerobyteError
-
-### APIError
-Raised when the API returns an error.
-
-**Inherits from:** ZerobyteError
-
-**Attributes:**
-- `status_code` (int): HTTP status code
-- `response`: Raw response object
-
-### NotFoundError
-Raised when a resource is not found (404).
-
-**Inherits from:** APIError
-
-### ValidationError
-Raised when request validation fails.
-
-**Inherits from:** APIError
-
----
-
-## Error Handling Example
+### Usage
 
 ```python
 from py_zerobyte import (
     ZerobyteClient,
+    ZerobyteError,
     AuthenticationError,
+    APIError,
     NotFoundError,
     ValidationError,
-    APIError
 )
 
 try:
-    client = ZerobyteClient(
-        url="http://localhost:4096",
-        username="admin",
-        password="password"
-    )
-    
-    volume = client.volumes.get(999)
-    
+    client = ZerobyteClient(url="http://localhost:4096",
+                            username="admin", password="wrong")
 except AuthenticationError as e:
-    print(f"Auth failed: {e}")
+    print(f"Login failed: {e}")
+
+try:
+    vol = client.volumes.get("bad-id")
 except NotFoundError as e:
-    print(f"Not found: {e} (status: {e.status_code})")
+    print(f"Not found (HTTP {e.status_code}): {e}")
+
+try:
+    client.volumes.create({})
 except ValidationError as e:
     print(f"Validation error: {e}")
+
+try:
+    client.volumes.list()
 except APIError as e:
-    print(f"API error: {e} (status: {e.status_code})")
+    print(f"API error (HTTP {e.status_code}): {e}")
+except ZerobyteError as e:
+    print(f"SDK error: {e}")
 ```

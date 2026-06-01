@@ -1,8 +1,6 @@
-# 🎯 Quick Start Guide
+# Quick Start Guide — Zerobyte SDK
 
-**Zerobyte SDK** - Python SDK for the Zerobyte API
-
-## Installation
+## Install
 
 ```bash
 pip install py-zerobyte
@@ -13,160 +11,147 @@ pip install py-zerobyte
 ```python
 from py_zerobyte import ZerobyteClient
 
-# Connect (URL, username, password configured here as requested)
 client = ZerobyteClient(
     url="http://localhost:4096",
     username="admin",
     password="your-password"
 )
 
-# Use the API
 volumes = client.volumes.list()
-print(f"Found {len(volumes)} volumes")
+print(f"Found {len(volumes)} volume(s)")
 ```
 
 ## What's Included
 
-✅ **All 52 API endpoints** from your swagger.json  
-✅ **Complete documentation** (README, API Reference, Tutorial)  
-✅ **5 working examples** (basic usage, backup setup, restore, notifications, monitoring)  
-✅ **Error handling** with custom exceptions  
-✅ **Type hints** for IDE support  
-✅ **Ready for PyPI** (setup.py, pyproject.toml configured)
+- **50 API endpoints** — full coverage of the Zerobyte REST API
+- **7 API modules** — auth, volumes, repositories, snapshots, backup_schedules, notifications, system
+- **Custom exceptions** — `AuthenticationError`, `NotFoundError`, `ValidationError`, `APIError`
+- **Type hints** — IDE-friendly signatures throughout
+- **Session management** — single `requests.Session` with automatic cookie handling
 
 ## File Overview
 
-### 📦 Core Package
-- `py_zerobyte/` - Main package with all API methods
-  - `client.py` - Main client (URL/user/pass in `__init__`)
-  - `auth.py` - Authentication API
-  - `volumes.py` - Volumes API
-  - `repositories.py` - Repositories API
-  - `snapshots.py` - Snapshots API
-  - `backup_schedules.py` - Backup Schedules API
-  - `notifications.py` - Notifications API
-  - `system.py` - System API
-  - `exceptions.py` - Custom exceptions
+### Core Package (`py_zerobyte/`)
 
-### 📚 Documentation
-- `README.md` - Main documentation with examples
-- `API_REFERENCE.md` - Complete API reference
-- `TUTORIAL.md` - Step-by-step tutorial
-- `INSTALL.md` - Installation guide
-- `PUBLISHING.md` - PyPI publishing guide
-- `PROJECT_SUMMARY.md` - Project overview
-- `CHECKLIST.md` - Pre-publishing checklist
+| File | Purpose |
+|---|---|
+| `client.py` | `ZerobyteClient` — entry point, `_make_request`, auth helpers |
+| `auth.py` | Login, logout, get_me, change_password, register, status |
+| `volumes.py` | CRUD, mount/unmount, health check, file listing |
+| `repositories.py` | CRUD, doctor, rclone remotes |
+| `snapshots.py` | List, inspect, restore, delete |
+| `backup_schedules.py` | Schedules, run/stop/forget, mirrors, notifications, reorder |
+| `notifications.py` | Notification destination CRUD + test |
+| `system.py` | System info, restic password |
+| `exceptions.py` | Exception hierarchy |
 
-### 💡 Examples
-- `examples/basic_usage.py` - Basic connection and listing
-- `examples/create_backup_setup.py` - Full backup setup
-- `examples/restore_snapshot.py` - Snapshot restoration
-- `examples/manage_notifications.py` - Notification setup
-- `examples/monitor_status.py` - System monitoring
-- `quickstart.py` - Quick start script
+### Documentation
 
-### 🧪 Testing
-- `tests/test_client.py` - Unit tests
-- Run with: `pytest`
+| File | Contents |
+|---|---|
+| `README.md` | Full usage guide with examples for every API |
+| `API_REFERENCE.md` | Method signatures, parameters, return shapes |
+| `TUTORIAL.md` | Step-by-step walkthrough (connect → backup → restore) |
+| `INSTALL.md` | Installation options and troubleshooting |
+| `QUICKSTART.md` | This file |
+| `PROJECT_SUMMARY.md` | Architecture and design decisions |
+| `CHECKLIST.md` | Pre-publish / release checklist |
 
-### ⚙️ Configuration
-- `setup.py` - Package setup
-- `pyproject.toml` - Modern Python config
-- `requirements.txt` - Dependencies
-- `LICENSE` - MIT License
-- `.gitignore` - Git ignore patterns
+### Examples (`examples/`)
+
+| File | Shows |
+|---|---|
+| `basic_usage.py` | Connect, list resources |
+| `create_backup_setup.py` | Full backup infrastructure from scratch |
+| `restore_snapshot.py` | Snapshot restore workflow |
+| `manage_notifications.py` | Notification destination setup |
+| `monitor_status.py` | System status reporting |
 
 ## API Coverage
 
-| Category | Methods | Status |
-|----------|---------|--------|
-| Authentication | 6 | ✅ Complete |
-| Volumes | 11 | ✅ Complete |
-| Repositories | 5 | ✅ Complete |
-| Snapshots | 5 | ✅ Complete |
-| Backup Schedules | 15 | ✅ Complete |
-| Notifications | 6 | ✅ Complete |
-| System | 2 | ✅ Complete |
-| **TOTAL** | **52** | ✅ **100%** |
+| Module | Methods |
+|---|---|
+| `client.auth` | `register`, `login`, `logout`, `get_me`, `get_status`, `change_password` |
+| `client.volumes` | `list`, `create`, `get`, `update`, `delete`, `mount`, `unmount`, `health_check`, `list_files`, `browse_filesystem`, `test_connection` |
+| `client.repositories` | `list`, `create`, `get`, `update`, `delete`, `doctor`, `list_rclone_remotes` |
+| `client.snapshots` | `list`, `get_details`, `delete`, `list_files`, `restore` |
+| `client.backup_schedules` | `list`, `create`, `get`, `update`, `delete`, `get_for_volume`, `run_now`, `stop_backup`, `run_forget`, `get_notifications`, `update_notifications`, `get_mirrors`, `update_mirrors`, `get_mirror_compatibility`, `reorder` |
+| `client.notifications` | `list_destinations`, `create_destination`, `get_destination`, `update_destination`, `delete_destination`, `test_destination` |
+| `client.system` | `get_info`, `download_restic_password` |
 
-## Quick Examples
+## Key Concepts
 
-### List Resources
+### Resource IDs
+
+Most resources are identified by a **shortId** string (e.g. `"0-b-U31s"`), not a sequential integer. Use the `shortId` field from list/create responses.
+
 ```python
-volumes = client.volumes.list()
-repos = client.repositories.list(volume_id=1)
-snapshots = client.snapshots.list(volume_id=1, repository_id=1)
+repos = client.repositories.list()
+rid = repos[0]['shortId']          # "Eilm20ua"
+repo = client.repositories.get(rid)
 ```
 
-### Create Backup Schedule
+### Backup Schedule Creation
+
+`repositoryId` and `volumeId` are **body fields**, not path parameters:
+
 ```python
-schedule = client.backup_schedules.create(
-    volume_id=1,
-    repository_id=1,
-    schedule_data={
-        "name": "Daily Backup",
-        "schedule": "0 2 * * *",
-        "backupPaths": ["/home", "/etc"],
-        "retention": {"keepLast": 7, "keepDaily": 7}
+schedule = client.backup_schedules.create({
+    "name": "Daily",
+    "repositoryId": "Eilm20ua",    # repository shortId
+    "volumeId": 1,                 # volume numeric id
+    "cronExpression": "0 2 * * *",
+    "enabled": True,
+    "backupPaths": ["/data"]
+})
+sched_id = schedule['shortId']
+```
+
+### Notification Destination Type
+
+The destination `type` lives **inside** the `config` dict:
+
+```python
+client.notifications.create_destination({
+    "name": "My Telegram",
+    "config": {
+        "type": "telegram",
+        "botToken": "...",
+        "chatId": "..."
     }
-)
+})
 ```
 
-### Run Backup Now
+## Common Patterns
+
 ```python
-client.backup_schedules.run_now(volume_id=1, repository_id=1, schedule_id=1)
+# List → act on first result
+vols = client.volumes.list()
+vid  = vols[0]['shortId']
+client.volumes.mount(vid)
+
+# Create schedule, run immediately
+sched = client.backup_schedules.create({...})
+client.backup_schedules.run_now(sched['shortId'])
+
+# Restore latest snapshot
+snaps = client.snapshots.list(rid)
+if snaps:
+    client.snapshots.restore(rid, {"target": "/restore", "snapshotId": snaps[0]['id']})
 ```
-
-### Restore Snapshot
-```python
-client.snapshots.restore(
-    volume_id=1,
-    repository_id=1,
-    snapshot_id="abc123",
-    restore_data={"target": "/restore", "include": ["/home"]}
-)
-```
-
-## Publishing to PyPI
-
-```bash
-# Build
-python -m build
-
-# Upload to PyPI
-python -m twine upload dist/*
-```
-
-See `PUBLISHING.md` for detailed instructions.
-
-## Next Steps
-
-1. **Read** `TUTORIAL.md` for step-by-step guide
-2. **Try** examples in `examples/` directory
-3. **Test** with your Zerobyte API instance
-4. **Publish** to PyPI (see `PUBLISHING.md`)
-
-## Documentation Map
-
-- **New user?** → Start with `TUTORIAL.md`
-- **Need API details?** → See `API_REFERENCE.md`
-- **Want examples?** → Check `examples/` directory
-- **Installing?** → Read `INSTALL.md`
-- **Publishing?** → Follow `PUBLISHING.md`
-- **Overview?** → See `PROJECT_SUMMARY.md`
 
 ## Requirements
 
 - Python 3.7+
-- requests >= 2.25.0
+- `requests >= 2.25.0`
 
-## Support
+## Next Steps
 
-Created with ❤️ based on your swagger.json specification.  
-All 52 endpoints covered with URL/username/password in `__init__` as requested.
+- Full examples → `examples/` directory
+- Complete method docs → `API_REFERENCE.md`
+- Step-by-step walkthrough → `TUTORIAL.md`
+- Release checklist → `CHECKLIST.md`
 
 ---
 
-**Status**: ✅ Ready for production  
-**Version**: 1.0.0  
-**License**: MIT
+**Version:** 1.2.1 | **License:** MIT
